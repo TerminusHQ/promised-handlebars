@@ -58,7 +58,7 @@
   },
   "config": {
     "ghooks": {
-      "pre-commit": "thoughtful precommit && standard --format"
+      "pre-commit": "standard"
     }
   }
 }
