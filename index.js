@@ -97,10 +97,14 @@ function promisedHandlebars (Handlebars, options) {
           return output
         }
         // Promises are fulfilled. Insert real values into the result.
-        return String(output).replace(regex, function (match, index, gt) {
-          // Check whether promise result must be escaped
-          return gt === '>' ? promiseResults[index] : engine.escapeExpression(promiseResults[index])
-        })
+        function replacePlaceholders (string) {
+          return String(string).replace(regex, function (match, index, gt) {
+            // Check whether promise result must be escaped
+            const promiseResult = replacePlaceholders(promiseResults[index])
+            return gt === '>' ? promiseResult : engine.escapeExpression(promiseResult)
+          })
+        }
+        return replacePlaceholders(output)
       })
     } finally {
       // Reset promises for the next execution run
@@ -125,9 +129,9 @@ function promisedHandlebars (Handlebars, options) {
     }
     var hash = options.hash
 
-    // Handlebars calls helpers from template functions and appends the result to a string.
-    // In {{helper (inner-helper)}}, the inner-helper must return a promise
-    // They need a toString-method
+    // Handlebars calls helpers from template functions and appends the result to a string,
+    // but in {{helper (inner-helper)}}, the inner-helper must return a promise
+    // The promise needs a toString-method
     return createMarker(function () {
       // In `{{#each (inner-helper)}}abc{{/each}}`, if `inner-helper` returns a promise,
       // `#each` must be called with the resolved value of the promise instead.
