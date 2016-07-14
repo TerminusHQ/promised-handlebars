@@ -7,7 +7,12 @@
 
 'use strict'
 
-var Q = require('q')
+var Promise = require('bluebird');
+
+function isPromiseAlike(obj) {
+  if (obj == null) return false;
+  return (typeof obj === 'object') && (typeof obj.then === 'function');
+}
 
 // Store for promises created during a template execution
 var promises = null
@@ -91,7 +96,7 @@ function promisedHandlebars (Handlebars, options) {
       // Execute template (helpers are getting called and store promises into the array
       var resultWithPlaceholders = fn.apply(this, args)
 
-      return Q.all([resultWithPlaceholders, Q.all(promises)]).spread(function (output, promiseResults) {
+      return Promise.all([resultWithPlaceholders, Promise.all(promises)]).spread(function (output, promiseResults) {
         if (typeof output !== 'string') {
           // Make sure that non-string values are not converted to a string.
           return output
@@ -135,11 +140,11 @@ function promisedHandlebars (Handlebars, options) {
       // Check whether there are promises at all
       var promiseArgs = false
       args.forEach(function (arg) {
-        promiseArgs = promiseArgs || Q.isPromiseAlike(arg)
+        promiseArgs = promiseArgs || isPromiseAlike(arg)
       })
       if (hash) {
         Object.keys(hash).forEach(function (key) {
-          promiseArgs = promiseArgs || Q.isPromiseAlike(hash[key])
+          promiseArgs = promiseArgs || isPromiseAlike(hash[key])
         })
       }
       if (!promiseArgs) {
@@ -147,12 +152,12 @@ function promisedHandlebars (Handlebars, options) {
       }
 
       // Condense promises from args and resolve them
-      var argsPromise = Q.all(args)
+      var argsPromise = Promise.all(args)
       var hashPromise = {}
       // Resolve hash
       if (hash) {
         var hashKeys = Object.keys(hash)
-        hashPromise = Q.all(hashKeys.map(function (key) {
+        hashPromise = Promise.all(hashKeys.map(function (key) {
           return hash[key]
         })).then(function (resolvedHashValues) {
           var result = {}
@@ -162,11 +167,11 @@ function promisedHandlebars (Handlebars, options) {
           return result
         })
       }
-      // `Q.all` will always put us in a new event-loop-cycle, which means more overhead
+      // `Promise.all` will always put us in a new event-loop-cycle, which means more overhead
       // for instances of `promises`-array and possibly more overhead replacing placeholders
       // in the helper result.
       // That's why we only call it if necessary
-      return Q.all([argsPromise, hashPromise]).spread(function (resolvedArgs, resolvedHash) {
+      return Promise.all([argsPromise, hashPromise]).spread(function (resolvedArgs, resolvedHash) {
         // We need a new `promises` array, because we are in a new event-loop-cycle now.
         if (hash) {
           resolvedArgs[resolvedArgs.length - 1].hash = resolvedHash
@@ -193,7 +198,7 @@ function promisedHandlebars (Handlebars, options) {
    */
   function createMarker (fn, args) {
     var promiseOrValue = fn.apply(this, args)
-    if (!Q.isPromiseAlike(promiseOrValue)) {
+    if (!isPromiseAlike(promiseOrValue)) {
       return promiseOrValue
     }
     promises.push(promiseOrValue)
